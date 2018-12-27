@@ -1,0 +1,37 @@
+    <div class="col-md-3 ">
+        <ul>
+            公告
+            <li>昵称:<span>{{ blog.user.username }}</span></li>
+            <li>粉丝:<span>{{ fans_count }}</span></li>
+            <li>关注:<span>{{ star_count }}</span></li>
+            <li>邮箱:<span>{{ blog.user.email }}</span></li>
+            <li><span>{{ blog.signature }}</span></li>
+        </ul>
+
+        <ul>
+            标签
+            {% for tag in tag_statistics %}
+                <li>
+                    <a href="{% url 'blog_condition' surfix=blog.surfix condition='tag' value=tag.id %}">{{ tag.title }}(<span>{{ tag.article_count }}</span>)</a>
+                </li>
+            {% endfor %}
+        </ul>
+
+        <ul>
+            分类
+            {% for category in category_statistics %}
+                <li>
+                    <a href="{% url 'blog_condition' surfix=blog.surfix condition='category' value=category.id %}">{{ category.title }}(<span>{{ category.article_count }}</span>)</a>
+                </li>
+            {% endfor %}
+        </ul>
+
+        <ul>
+            时间
+            {% for date in date_statistics %}
+                <li>
+                    <a href="{% url 'blog_condition' surfix=blog.surfix condition='date' value=date.create_date %}">{{ date.create_date }}&nbsp;(<span>{{ date.article_count }}</span>)</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>

@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load account_tags %}
+{% block css %}
+    <style>
+        .register-body {
+            width: 1000px;
+            font-size: 18px;
+        }
+
+        span.info {
+            margin-left: 40px;
+        }
+
+        label {
+            width: 115px;
+        }
+
+        .change-href {
+            margin-left: 155px;
+            font-size: 14px;
+            color: #778087;
+        }
+
+        .change-href a {
+            color: #778087;
+        }
+
+        .location-label {
+            width: 30px;
+        }
+
+        #flash {
+            background: #dbfbdc;
+            width: 100%;
+            font-size: 15px;
+            line-height: 40px;
+            margin: 0px 0px 10px 0px;
+            text-indent: 30px;
+        }
+
+        #header {
+            background: #79aec8;
+            margin-bottom: 10px;
+            width: 100%;
+            font-size: 20px;
+            padding: 0 40px;
+            line-height: 35px;
+            color: #c4dbe7;
+
+        }
+
+        #header a {
+            color: #fafcf8;
+        }
+
+
+    </style>
+{% endblock css %}
+{% block body %}
+    <div id="header"><a href="/">首页</a> <span class="chevron">&nbsp;›&nbsp;</span> 用户信息</div>
+    <div class="register-body container" xmlns="http://www.w3.org/1999/html">
+        <div id="flash">{% if messages %}
+            {% for msg in messages %}
+                {{ msg.message }}
+            {% endfor %}
+        {% endif %}
+        </div>
+        <form method="POST" class="register-contents ">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="avatar-img"><img
+                        src="{{ MEDIA_URL }}{{ request.login_user.img }}"
+                        class="avatar-img" border="0" align="default"
+                        style="max-width: 100px; max-height: 80px;"></label>
+                <input type="file" id="avatar-img" style="display: none">
+                <span class="introduce info">&nbsp;&nbsp;ErrorReport 第 {{ request.login_user.id }} 号会员</span>
+                <div class="change-href"><a href="javascript:;" id="avatar-href">确认更换头像</a></div>
+                <div class="msg img-error"></div>
+            </div>
+            <div class="form-group">
+                <label for="">用户名</label>
+                <span class="info">{{ request.login_user.username }}</span>
+            </div>
+
+            <div class="form-group">
+                <label for="">加入时间</label>
+                <span class="info">{{ request.login_user.enroll_date }}</span>
+            </div>
+
+            <div class="form-group">
+                <label for="">手机号</label>
+                <span class="info">{{ request.login_user.phone|filter_phone }}</span>
+                <div class="change-href"><a href="">更改手机号</a></div>
+            </div>
+
+
+            <div class="form-group">
+                <label for="email">电子邮件</label>
+                <span class="info">{{ request.login_user.email }}</span>
+                <div class="change-href"><a href="">更改注册邮箱</a></div>
+            </div>
+
+
+            <div class="form-group">
+                <label for="id_{{ form.signature.name }}"> {{ form.signature.label }}</label>
+                <span class="info">{{ form.signature }}</span>
+                <div class="msg">{{ form.signature.errors.0 }}</div>
+            </div>
+
+
+            <div class="form-group">
+                <select name="" id="province">
+                    {% for province in provinces %}
+                        <option value="{{ province.id }}">{{ province.title }}</option>
+                    {% endfor %}
+                </select>
+                <label for="province" class="location-label">省</label>
+                <select name="" id="city">
+                    {% for city in citys %}
+                        <option value="{{ city.id }}">{{ city.title }}</option>
+                    {% endfor %}
+                </select>
+                <label for="city" class="location-label">市</label>
+
+                <select name="location" id="id_loaction">
+                    {% for town in towns %}
+                        <option value="{{ town.id }}">{{ town.title }}</option>
+                    {% endfor %}
+                </select>
+                <label for="id_loaction" class="location-label">镇</label>
+                <div class="msg">{{ form.location.errors.0 }}</div>
+            </div>
+
+
+            <div class="form-group">
+                <label for="id_{{ form.location_detail.name }}"> {{ form.location_detail.label }}</label>
+                <span class="info">{{ form.location_detail }}</span>
+                <div class="msg">{{ form.location_detail.errors.0 }}</div>
+            </div>
+
+
+            <div class="form-group">
+                <label for="id_{{ form.birthday.name }}"> {{ form.birthday.label }}</label>
+                <span class="info">{{ form.birthday }}</span>
+                <div class="msg">  {{ form.birthday.errors.0 }}</div>
+            </div>
+
+
+            <div class="form-group">
+                <label for="id_{{ form.interest.name }}"> {{ form.interest.label }}</label>
+                <span class="info">{{ form.interest }}</span>
+                <div class="msg">  {{ form.interest.errors.0 }}</div>
+            </div>
+
+
+            <div class="form-group">
+                <input type="submit" class="btn btn-primary submit-btn" value='提交'>
+            </div>
+
+        </form>
+
+    </div>
+{% endblock body %}
+
+
+{% block js %}
+    <script>
+        $('#avatar-img').change(function () {
+            $('.img-error').text('');
+            var fileReader = new FileReader();
+            // 获取当前选中的头像文件
+            console.log(this.files[0]);
+            // 读取文件是需要时间的，onload表示读完之后的操作
+            fileReader.readAsDataURL(this.files[0]);
+            fileReader.onload = function () {
+                $('.avatar-img').attr('src', fileReader.result);
+            };
+        });
+
+        $('#avatar-href').click(function () {
+            if (!$('#avatar-img').val()) {
+                // $('#avatar-img').val() 是文件路径名
+                // $('#avatar-img')[0].files[0] 是文件对象，后台从request.FILES里取出就是它
+                return;
+            }
+            var formData = new FormData();
+            formData.append('csrfmiddlewaretoken', $('[name = "csrfmiddlewaretoken"]').val());
+            formData.append('img', $('#avatar-img')[0].files[0]);
+            console.log($('#avatar-img'))
+            $.ajax({
+                url: '/account/upload_avatar/',
+                type: 'post',
+                processData: false,
+                contentType: false,
+                data: formData,
+                dataType: 'json',
+                success: function (data) {
+                    console.log(data)
+                    $('#avatar-img').val('');
+                    if (data.status == 0) {
+                        $('.img-error').text(data.img);
+                    }
+                    else if (data.status == 1) {
+                        $('#avatar-href').html('更换头像成功')
+                    }
+                }
+            })
+        });
+
+        $('#province').change(function () {
+            ChangeCityOption(this);
+        });
+
+
+        $('#city').change(function () {
+            ChangeTownOption(this);
+        });
+
+        function ChangeCityOption(ths) {
+            $.ajax({
+                url: '/account/get_city',
+                type: 'get',
+                dataType: 'JSON',
+                data: {'province_id': ths.value},
+                success: function (data) {
+                    data = JSON.parse(data); //列表，不会自动转化
+                    $('#city').empty();
+                    $.each(data, function (index, item) {
+                        console.log(index);
+                        var option = document.createElement('option');
+                        $(option).attr('value', item.id);
+                        $(option).html(item.title);
+                        $('#city').append(option);
+                    });
+                    ChangeTownOption($('#city')[0]);
+                }
+            });
+        }
+
+        function ChangeTownOption(ths) {
+            $.ajax({
+                url: '/account/get_town',
+                type: 'get',
+                dataType: 'JSON',
+                data: {'city_id': ths.value},
+                success: function (data) {
+                    data = JSON.parse(data); //列表，不会自动转化
+                    $('#id_loaction').empty();
+                    $.each(data, function (index, item) {
+                        var option = document.createElement('option');
+                        $(option).attr('value', item.id);
+                        $(option).html(item.title);
+                        $('#id_loaction').append(option);
+                    });
+                }
+            })
+
+        }
+    </script>
+
+{% endblock js %}

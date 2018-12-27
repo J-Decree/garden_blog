@@ -1,0 +1,384 @@
+{% extends 'web/blog_base.html' %}
+{% load static %}
+{% load filter %}
+
+{% block blog_contens %}
+    <h1 class="article-title">{{ article.title }}</h1>
+    <p class="article-summary">
+        {{ article.summary|default:"" }}
+    </p>
+    <div class="article-detail">
+
+        {{ article.detail|safe }}
+
+    </div>
+
+    <div>
+        <a href="javascript:;" class='evalute' id="up_action">
+            <span class="glyphicon glyphicon-thumbs-up" aria-hidden="true"></span>
+            <span id="up_count">{{ article|up_count }}</span>
+        </a>
+
+        <a href="javascript:;" class='evalute' id="down_action">
+            <span class="glyphicon glyphicon-thumbs-down" aria-hidden="true"></span>
+            <span id="down_count">{{ article| down_count }}</span>
+        </a>
+        <div class="msg" id="action_error"></div>
+
+        <div class="article-info">
+            <span>{{ article.time.ctime }}&nbsp;<a
+                    href="/{{ surfix }}">{{ article.blog.user.username }}</a>
+            </span>&nbsp;评论(<span> {{ article.commentinfo_set.count }} </span>)&nbsp;阅读(<span> {{ article.read_num }} </span>)
+        </div>
+
+
+        <div class="alert-info">
+            <div><img src="{% static 'img/alert.png' %}" alt="" class='fl'></div>
+            <p>作者：{{ article.blog.user.username }}</p>
+            <p>出处：<a href="{% url 'blog_article' surfix=blog.surfix article_id=article.id %} ">
+                {{ request.get_host }} {% url 'blog_article' surfix=blog.surfix article_id=article.id %} </a></p>
+            <p>本文版权归作者和博客园共有，欢迎转载，但未经作者同意必须保留此段声明，且在文章页面明显位置给出原文连接。</p>
+        </div>
+
+
+        <div class="comment-info">
+            <span>评论列表</span>
+            {#                {% for comment in comment_list %}#}
+            {#                    <div class='comment page-header'>#}
+            {#                        <p class='clearfix comment_header'>#}
+            {#                            <span class='pull-left'>{{ comment.user.username }} &nbsp;{{ comment.time }}</span>#}
+            {#                            <span class='pull-right'>#}
+            {#                                <a href="">回复</a>&nbsp;&nbsp;#}
+            {#                                <a href="">引用</a>#}
+            {#                            </span>#}
+            {#                        </p>#}
+            {#                        <div class='comment'>#}
+            {#                            {% if comment.comment_parent %}#}
+            {#                                <p>@ <span>{{ comment.comment_parent.user.username }}</span></p>#}
+            {#                            {% endif %}#}
+            {#                            {{ comment.detail|safe }}#}
+            {#                        </div>#}
+            {##}
+            {#                        <p class='clearfix evaluate'><a href="" class='pull-right'>支持(<span> 0 </span>)</a>#}
+            {#                            <a href="" class='pull-right'>反对(<span> 0 </span>)</a></p>#}
+            {#                    </div>#}
+            {#                {% endfor %}#}
+        </div>
+
+
+        {% if page.total_count != 1 %}
+            <div class="row ">
+                <div class="col-md-12 text-center ">
+                    <ul class="pagination">
+                        {{ page_str }}
+                    </ul>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="row">
+            <div class="col-md-12 pull-right ">
+                <div>
+                    <div class='form-group reply-text'>
+                        <textarea class='form-control' rows=15 id="comment-text" name="detail"></textarea>
+                        {% csrf_token %}
+                        {% if not request.login_user %}
+                            <div class="login-tips">
+                                <p>你需要登录后才可以回复&nbsp;&nbsp;<a href="{% url 'login' %}">登录</a> | <a href="">立即注册</a></p>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="form-group">
+                        <span><span id="text-num">0</span>字 / 255字</span>
+                        <button type="button" class='btn btn-primary' id="add_comment">发表回复</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock blog_contens %}
+
+
+{% block js %}
+    <script src={% static 'plugin/kindeditor/kindeditor-all-min.js' %}></script>
+    <script>
+        String.prototype.format = function () {
+            var values = arguments;
+            return this.replace(/\{(\d+)\}/g, function (match, index) {
+                if (values.length > index) {
+                    return values[index];
+                } else {
+                    return "";
+                }
+            });
+        };
+
+        var pathname = window.location.pathname;
+        var comment_parent_id = '';
+        get_comments();
+
+        initKindEditor();
+        function initKindEditor() {
+            editor = KindEditor.create('#comment-text', {
+                width: '100%',
+                height: '500px',
+                resizeType: 0, //不能改变大小
+                themeType: 'simple',
+                items: [
+                    'bold', 'italic', 'underline', 'fontname', 'fontsize', 'forecolor', 'hilitecolor', 'plug-align', 'plug-order', 'plug-indent', 'image', 'multiimage', 'emoticons'
+                ],
+                uploadJson: window.location.pathname + 'upload/kindeditor/',
+                filePostName: 'upload_img',//自定制文件名,request.FILES.get('upload_img')
+                extraFileUploadParams: {
+                    'csrfmiddlewaretoken': $("[name='csrfmiddlewaretoken']").val()
+                },
+                pasteType: 1,
+                filterMode: true,
+                htmlTags: {
+                    font: ['color'],
+                    span: [
+                        '.color',
+                    ],
+                },
+                afterUpload: function (url) {
+                    alert(url)
+                },
+                afterChange: function () { //编辑器内容发生变化后，将编辑器的内容设置到原来的textarea控件里
+                    this.sync();
+                    var text = this.text();
+                    var reg = /<img src=.+?>/g;
+                    text = text.replace(reg, '$');
+                    $('#text-num').html(text.length);
+                },
+                afterBlur: function () {
+                    this.sync();
+                },
+                afterChange: function () {
+                }
+
+            });
+        }
+
+
+        $('#up_action').click(function () {
+            $('#action_error').html('');
+            Action(1)
+        });
+
+        $('#down_action').click(function () {
+            $('#action_error').html('');
+            Action(-1)
+        });
+
+        //点赞
+        function Action(action) {
+            var url = pathname + 'action/';
+            var ele_name = 'count';
+            $.ajax({
+                    url: url,
+                    data: {'action': action},
+                    success: function (arg) {
+                        if (arg.status) {
+                            var ele_id = '';
+                            if (action === 1)
+                                ele_id = '#up_' + ele_name;
+                            else
+                                ele_id = '#down_' + ele_name;
+                            $(ele_id).html(arg.data['action_count']);
+                        }
+                        else {
+                            $('#action_error').html(arg['msg']);
+                        }
+                    }
+                }
+            )
+        }
+        //请求评论
+        function get_comments(page) {
+            var url = pathname + 'get_comments/';
+            if (!page)
+                page = 1;
+            $.ajax({
+                url: url,
+                data: {
+                    //p: page
+                },
+                dataType: 'JSON',
+                success: function (arg) {
+                    if (arg.status == 1) {
+                        var data_list = arg.data;
+                        $.each(data_list, function (index, data) {
+                            var replay_username = '';
+                            if (data['comment_parent_obj'])
+                                replay_username = data['comment_parent_obj']['username'];
+
+                            var comment_ele = create_comment_ele(
+                                data.user_obj['username'],
+                                data['time'],
+                                data['id'],
+                                replay_username,
+                                data['detail']
+                            );
+                            if (data['comment_parent_obj']) {
+
+                                var parent_sel = '.comment[comment_id="{0}"]'.format(data['comment_parent_obj']['id']);
+
+                                $(parent_sel).append(comment_ele);
+                            }
+                            else {
+                                $('.comment-info').append(comment_ele);
+                            }
+
+                        })
+                    }
+
+                }
+            })
+        }
+
+
+        function create_comment_ele(username, comment_time, comment_id, reply_username, detail) {
+            // 容器div
+            var comment_div = document.createElement('div');
+            $(comment_div).attr('class', 'comment');
+            comment_div.setAttribute('comment_id', comment_id);
+
+            var comment_header = create_comment_header(username, comment_time, comment_id);
+            var comment_body = create_comment_body(reply_username, detail);
+            var comment_footer = create_comment_footer(comment_id);
+            $(comment_div).append(comment_header, comment_body, comment_footer);
+            return comment_div;
+        }
+
+        function create_comment_header(username, comment_time, comment_id) {
+            // 评论头
+            var comment_header = document.createElement('p');
+            $(comment_header).attr('class', 'clearfix comment_header');
+            var comment_left_header = document.createElement('span');
+            var comment_right_header = document.createElement('span');
+            $(comment_left_header).attr('class', 'pull-left');
+            $(comment_right_header).attr('class', 'pull-right');
+            $(comment_left_header).html(username + '  ' + comment_time);
+            var header_href = $('<a href="#comment-text" class="reply_comment" reply_user="{0}" replay_comment_id="{1}">回复</a> &nbsp;&nbsp; <a href="#comment-text" class="quote_comment">引用</a>'.format(username, comment_id));
+            $(comment_right_header).append(header_href);
+            $(comment_header).append(comment_left_header);
+            $(comment_header).append(comment_right_header);
+            return comment_header
+        }
+
+        function create_comment_body(reply_username, detail) {
+            var comment_body = document.createElement('div');
+            if (reply_username) {
+                var reply = $('<p>@ <span>{0}</span></p>'.format(reply_username));
+                $(comment_body).append(reply);
+            }
+            $(comment_body).attr('class', 'comment_body');
+            var comment_detail = detail;
+            $(comment_body).append(comment_detail);
+            return comment_body;
+        }
+
+        function create_comment_footer(comment_id) {
+            var comment_footer = document.createElement('p');
+            $(comment_footer).attr('class', 'clearfix evaluate page-header');
+            var $foot_href = $('<a class="pull-right"> 支持 <span class="comment_up_num"> ({0}) </span></a> <a class="pull-right">反对 <span class="comment_down_num"> ({1}) </span></a>'.format(100, 20));
+            $(comment_footer).append($foot_href);
+            return comment_footer;
+        }
+
+        $('.comment-info').on('click', '.reply_comment', function () {
+            $('#comment-text').focus();
+            console.log($('#comment-text'));
+
+            comment_parent_id = $(this).attr('replay_comment_id');
+
+        });
+
+        $('.comment-info').on('click', '.quote_comment', function () {
+            $('#comment-text').focus();
+        });
+
+        // 增加评论
+        $('#add_comment').click(function () {
+            var url = pathname + 'add_comment/';
+            $.ajax({
+                url: url,
+                contentType: "application/x-www-form-urlencoded",
+                data: {
+                    detail: $('#comment-text').val(),
+                    comment_parent_id: comment_parent_id,
+                    csrfmiddlewaretoken: $("[name='csrfmiddlewaretoken']").val()
+                },
+                type: 'POST',
+                dataType: 'JSON',
+                success: function (arg) {
+                    if (arg.status === 1) {
+                        var data = arg.data;
+                        var replay_username = '';
+                        if (data['comment_parent_obj'])
+                            replay_username = data['comment_parent_obj']['username'];
+
+                        var comment_ele = create_comment_ele(
+                            data.user_obj['username'],
+                            data['time'],
+                            data['id'],
+                            replay_username,
+                            data['detail']
+                        );
+                        $('.comment-info').append(comment_ele);
+
+
+                    }
+                }
+            });
+        });
+
+
+        {#    评论的ajax分页#}
+
+        $('.pagination a:not(#next-page,#pre-page)').click(function () {
+
+            if ($(this).parent().hasClass('active')) {
+                return;
+            }
+            var p = $(this).html()
+            var $li = $(this)
+            $.ajax({
+                url: window.location.pathname + '/page_handler',
+                type: 'GET',
+                dataType: 'JSON',
+                data: {'p': p},
+                success: function (arg) {
+
+
+                    {#{id: 8, time: "2018年-07月-05日 15:18", username: "新卡辣辣", detail: "范登赫德舒服的洛克菲勒的时刻范德萨空间里发的发", comment_parent_username: null}#}
+
+                    var $comment_info = $('.comment-info');
+                    $comment_info.empty();
+
+                    $.each(arg, function (index, obj) {
+
+                        var $div = $("<div class='comment page-header'><p class='clearfix'><span class='pull-left comment-username'>&nbsp;<span class='comment-time'></span><span class='pull-right'><a href='#comment-text'>回复</a>&nbsp;&nbsp;<a href=''>引用</a></span></p><div class='comment'><p class='comment-parent-username'></p><div class='comment-detail'></div><p class='clearfix feeling'><a href='' class='pull-right'>支持(<span> 0 </span>)</a><a href='' class='pull-right'>反对(<span> 0 </span>)</a></p></div>")
+
+                        $div.find('.comment-username').append(obj.username);
+                        $div.find('.comment-time').append(obj.time);
+                        parent_username = '';
+                        if (obj.comment_parent_username) {
+                            parent_username = '@ ' + obj.comment_parent_username;
+                        }
+                        $div.find('.comment-parent-username').append(parent_username);
+                        $div.find('.comment-detail').append(obj.detail)
+
+                        $comment_info.append($div);
+
+                    })
+                    $li.parent().siblings().removeClass('active')
+                    $li.parent().addClass('active')
+
+                }
+            })
+        })
+
+    </script>
+{% endblock js %}
